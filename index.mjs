@@ -2,9 +2,9 @@ import SubEncoder from 'sub-encoder'
 import { RangeWatcher } from '@lejeunerenard/hyperbee-range-watcher-autobase'
 
 export const wrap = (base) => {
-  base.put = async (key, value) => base.append({ type: 'put', key, value })
-  base.del = async (key) => base.append({ type: 'del', key })
-  base.get = async (key) => base.view.get(key)
+  base.put = async (key, value, opts) => base.append({ type: 'put', key, value, opts })
+  base.del = async (key, opts) => base.append({ type: 'del', key, opts })
+  base.get = async (key, opts) => base.view.get(key, opts)
   return base
 }
 
@@ -20,11 +20,11 @@ export const apply = async (batch, bee, base) => {
 
     const op = node.value
     if (op.type === 'put') {
-      debug && console.log('put', op.key, op.value)
-      await b.put(op.key, op.value)
+      debug && console.log('put', op.key, op.value, op.opts)
+      await b.put(op.key, op.value, op.opts)
     } else if (op.type === 'del') {
       debug && console.log('del', op.key)
-      await b.del(op.key)
+      await b.del(op.key, op.opts)
     }
   }
 
@@ -38,14 +38,14 @@ export const createIndex = (name, base, range, cb) => {
   const sub = {
     enc: subEnc,
     async put (key, value) {
-      return base.put(subEnc.encode(key), value)
+      return base.put(key, value, { keyEncoding: subEnc })
     },
     async del (key) {
-      return base.del(subEnc.encode(key))
+      return base.del(key, { keyEncoding: subEnc })
     },
     async get (key) {
       // TODO Support other options
-      return base.get(subEnc.encode(key))
+      return base.get(key, { keyEncoding: subEnc })
     }
   }
 

@@ -36,8 +36,10 @@ test('basic', (t) => {
       sub.put(node.key, 2 * node.value))
 
     const rangeFor4x = sub.enc.encodeRange(range)
-    const [sub4x] = createIndex('4x', base, rangeFor4x, async (node, sub) =>
-      sub.put(node.key, 2 * node.value))
+    const [sub4x] = createIndex('4x', base, rangeFor4x, async (node, mySub) => {
+      const key = sub.enc.decode(b4a.from(node.key))
+      await mySub.put(key, 2 * node.value)
+    })
 
     const key = 'entry!foo'
     await base.put(key, 2)
@@ -46,7 +48,7 @@ test('basic', (t) => {
     const node = await sub.get(key)
     t.equal(node.value, 4, 'derived value is 2 times')
 
-    const node4x = await sub4x.get(sub.enc.encode(key))
+    const node4x = await sub4x.get(key)
     t.equal(node4x.value, 8, 'double derived value is 4 times')
   })
 
