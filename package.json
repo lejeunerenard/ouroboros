@@ -1,0 +1,30 @@
+{
+  "name": "ouroborus",
+  "version": "1.0.0",
+  "description": "This module provides a way to do secondary indexes on autobase hyperbees. This is done by creating an api similar to SimpleAutobee to support hyperbee operations w/ autobase, but also providing simple ways to watch key ranges and derive values base on changes to those ranges as well.",
+  "main": "index.mjs",
+  "type": "module",
+  "scripts": {
+    "test": "tape tests/**/*.mjs"
+  },
+  "keywords": [],
+  "author": "Sean Zellmer <sean@lejeunerenard.com> (http://lejeunerenard.com/)",
+  "license": "MIT",
+  "devDependencies": {
+    "corestore": "^6.16.2",
+    "eslint": "^8.56.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-n": "^16.6.2",
+    "eslint-plugin-promise": "^6.1.1",
+    "random-access-memory": "^6.2.0",
+    "tape": "^5.7.4"
+  },
+  "dependencies": {
+    "@lejeunerenard/hyperbee-parallel-readstream": "github:lejeunerenard/hyperbee-parallel-readstream",
+    "@lejeunerenard/hyperbee-range-watcher-autobase": "github:lejeunerenard/hyperbee-range-watcher-autobase",
+    "autobase-next": "file:../autobase-next",
+    "hyperbee": "^2.18.2",
+    "sub-encoder": "^2.1.3"
+  }
+}
