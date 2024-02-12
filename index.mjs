@@ -32,11 +32,19 @@ export const apply = async (batch, bee, base) => {
   debug && console.log('-- end apply --')
 }
 
-export const createIndex = (name, base, range, cb) => {
+export const INDEX_META_NS = 'indexes-meta'
+const indexMetaEnc = new SubEncoder()
+export const indexMetaSubEnc = indexMetaEnc.sub(INDEX_META_NS)
+
+export const createIndex = async (name, base, range, cb, opts = { version: 1 }) => {
+  const debug = false
+  const version = opts.version
+
   const enc = new SubEncoder()
   const subEnc = enc.sub(name)
   const sub = {
     enc: subEnc,
+    version,
     async put (key, value) {
       return base.put(key, value, { keyEncoding: subEnc })
     },
@@ -49,6 +57,24 @@ export const createIndex = (name, base, range, cb) => {
     }
   }
 
+  const prevVersion = await base.get(name, { keyEncoding: indexMetaSubEnc })
+  debug && console.log('prevVersion', prevVersion, 'version', version)
+  if (prevVersion && prevVersion.value < version) {
+    await base.put(name, version, { keyEncoding: indexMetaSubEnc })
+    if (prevVersion) {
+      const proms = []
+      for await (const node of base.view.createReadStream({ keyEncoding: subEnc })) {
+        proms.push(base.del(node.key, { keyEncoding: subEnc }))
+      }
+
+      await Promise.all(proms)
+    }
+  } else {
+    await base.put(name, version, { keyEncoding: indexMetaSubEnc })
+  }
+
+  // TODO Consider implementing a version that walks through the history of the
+  // view
   const watcher = new RangeWatcher(base.view, range, 0, (node) => cb(node, sub))
 
   return [sub, watcher]
