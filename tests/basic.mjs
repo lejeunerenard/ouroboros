@@ -80,8 +80,6 @@ test('basic', (t) => {
     const delNode = await base.get(key)
     t.equal(delNode, null)
 
-    await setTimeout(0)
-
     const nodeAfterDel = await sub.get(key)
     t.equal(nodeAfterDel, null, 'updates index from deleted key')
   })

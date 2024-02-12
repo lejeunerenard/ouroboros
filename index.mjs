@@ -1,9 +1,18 @@
 import SubEncoder from 'sub-encoder'
 import { RangeWatcher } from '@lejeunerenard/hyperbee-range-watcher-autobase'
+import { setTimeout } from 'timers/promises'
 
 export const wrap = (base) => {
-  base.put = async (key, value, opts) => base.append({ type: 'put', key, value, opts })
+  base.put = async (key, value, opts) => base.append({
+    type: 'put',
+    key,
+    value,
+    opts
+  }).then((...args) => setTimeout(0, ...args))
+
   base.del = async (key, opts) => base.append({ type: 'del', key, opts })
+    .then((...args) => setTimeout(0, ...args))
+
   base.get = async (key, opts) => base.view.get(key, opts)
   return base
 }
