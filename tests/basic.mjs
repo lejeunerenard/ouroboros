@@ -126,4 +126,39 @@ test('basic', (t) => {
       t.end()
     })
   })
+
+  t.test('two range dependencies', async (t) => {
+    const base = makeBase()
+    const ranges = [
+      { gte: 'add!', lt: bump(b4a.from('add!')) },
+      { gte: 'subtract!', lt: bump(b4a.from('subtract!')) }
+    ]
+
+    const [sub] = await createIndex('result', base, ranges, async (node, sub) => {
+      let total = 0
+      for (const range of ranges) {
+        for await (const node of base.view.createReadStream(range)) {
+          const op = node.key.split('!')[0]
+          switch (op) {
+            case 'add':
+              total += node.value
+              break
+            case 'subtract':
+              total -= node.value
+              break
+          }
+        }
+      }
+      await sub.put('total', total)
+    })
+
+    await base.put('add!a', 1)
+    await base.put('add!b', 2)
+    await base.put('subtract!c', 3)
+    await base.put('add!a', 4)
+    await base.put('foo', 3)
+
+    const total = await sub.get('total')
+    t.equal(total.value, 3)
+  })
 })

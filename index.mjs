@@ -45,9 +45,11 @@ export const INDEX_META_NS = 'indexes-meta'
 const indexMetaEnc = new SubEncoder()
 export const indexMetaSubEnc = indexMetaEnc.sub(INDEX_META_NS)
 
-export const createIndex = async (name, base, range, cb, opts = { version: 1 }) => {
+export const createIndex = async (name, base, ranges, cb, opts = { version: 1 }) => {
   const debug = false
   const version = opts.version
+
+  if (!Array.isArray(ranges)) ranges = [ranges]
 
   const enc = new SubEncoder()
   const subEnc = enc.sub(name)
@@ -84,7 +86,7 @@ export const createIndex = async (name, base, range, cb, opts = { version: 1 }) 
 
   // TODO Consider implementing a version that walks through the history of the
   // view
-  const watcher = new RangeWatcher(base.view, range, 0, (node) => cb(node, sub))
+  const watchers = ranges.map((range) => new RangeWatcher(base.view, range, 0, (node) => cb(node, sub)))
 
-  return [sub, watcher]
+  return [sub, watchers]
 }
