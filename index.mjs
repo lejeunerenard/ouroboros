@@ -23,16 +23,16 @@ export const apply = async (batch, bee, base) => {
   const b = bee.batch({ update: false })
 
   for (const node of batch) {
-    debug && console.log('node', node)
+    debug && console.log('-> node', node)
     const hyperbeeOp = 'type' in node.value
     if (!hyperbeeOp || (node.value.type !== 'put' && node.value.type !== 'del')) continue
 
     const op = node.value
     if (op.type === 'put') {
-      debug && console.log('put', op.key, op.value, op.opts)
+      debug && console.log('-> put', op.key, op.value, op.opts)
       await b.put(op.key, op.value, op.opts)
     } else if (op.type === 'del') {
-      debug && console.log('del', op.key)
+      debug && console.log('-> del', op.key, op.opts)
       await b.del(op.key, op.opts)
     }
   }
