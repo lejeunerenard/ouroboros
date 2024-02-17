@@ -11,6 +11,7 @@
   "author": "Sean Zellmer <sean@lejeunerenard.com> (http://lejeunerenard.com/)",
   "license": "MIT",
   "devDependencies": {
+    "autobase": "^6.0.0-rc0",
     "corestore": "^6.16.2",
     "eslint": "^8.56.0",
     "eslint-config-standard": "^17.1.0",
@@ -23,7 +24,6 @@
   "dependencies": {
     "@lejeunerenard/hyperbee-parallel-readstream": "github:lejeunerenard/hyperbee-parallel-readstream",
     "@lejeunerenard/hyperbee-range-watcher-autobase": "github:lejeunerenard/hyperbee-range-watcher-autobase",
-    "autobase-next": "file:../autobase-next",
     "hyperbee": "^2.18.2",
     "sub-encoder": "^2.1.3"
   }

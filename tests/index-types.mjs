@@ -1,5 +1,5 @@
 import test from 'tape'
-import Autobase from 'autobase-next'
+import Autobase from 'autobase'
 import Hyperbee from 'hyperbee'
 import Corestore from 'corestore'
 import RAM from 'random-access-memory'
