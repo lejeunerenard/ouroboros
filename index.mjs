@@ -25,7 +25,12 @@ export const apply = async (batch, bee, base) => {
   for (const node of batch) {
     debug && console.log('-> node', node)
     const hyperbeeOp = 'type' in node.value
-    if (!hyperbeeOp || (node.value.type !== 'put' && node.value.type !== 'del')) continue
+    if (
+      !hyperbeeOp ||
+      (node.value.type !== 'put' && node.value.type !== 'del')
+    ) {
+      continue
+    }
 
     const op = node.value
     if (op.type === 'put') {
@@ -45,48 +50,50 @@ export const INDEX_META_NS = 'indexes-meta'
 const indexMetaEnc = new SubEncoder()
 export const indexMetaSubEnc = indexMetaEnc.sub(INDEX_META_NS)
 
-export const createIndex = async (name, base, ranges, cb, opts = { version: 1 }) => {
-  const debug = false
-  const version = opts.version
+export const createIndex =
+  async (name, base, ranges, cb, opts = { version: 1 }) => {
+    const debug = false
+    const version = opts.version
 
-  if (!Array.isArray(ranges)) ranges = [ranges]
+    if (!Array.isArray(ranges)) ranges = [ranges]
 
-  const enc = new SubEncoder()
-  const subEnc = enc.sub(name)
-  const sub = {
-    enc: subEnc,
-    version,
-    async put (key, value) {
-      return base.put(key, value, { keyEncoding: subEnc })
-    },
-    async del (key) {
-      return base.del(key, { keyEncoding: subEnc })
-    },
-    async get (key) {
+    const enc = new SubEncoder()
+    const subEnc = enc.sub(name)
+    const sub = {
+      enc: subEnc,
+      version,
+      async put (key, value) {
+        return base.put(key, value, { keyEncoding: subEnc })
+      },
+      async del (key) {
+        return base.del(key, { keyEncoding: subEnc })
+      },
+      async get (key) {
       // TODO Support other options
-      return base.get(key, { keyEncoding: subEnc })
-    }
-  }
-
-  const prevVersion = await base.get(name, { keyEncoding: indexMetaSubEnc })
-  debug && console.log('prevVersion', prevVersion, 'version', version)
-  if (prevVersion && prevVersion.value < version) {
-    await base.put(name, version, { keyEncoding: indexMetaSubEnc })
-    if (prevVersion) {
-      const proms = []
-      for await (const node of base.view.createReadStream({ keyEncoding: subEnc })) {
-        proms.push(base.del(node.key, { keyEncoding: subEnc }))
+        return base.get(key, { keyEncoding: subEnc })
       }
-
-      await Promise.all(proms)
     }
-  } else {
-    await base.put(name, version, { keyEncoding: indexMetaSubEnc })
+
+    const prevVersion = await base.get(name, { keyEncoding: indexMetaSubEnc })
+    debug && console.log('prevVersion', prevVersion, 'version', version)
+    if (prevVersion && prevVersion.value < version) {
+      await base.put(name, version, { keyEncoding: indexMetaSubEnc })
+      if (prevVersion) {
+        const proms = []
+        for await (const node of base.view.createReadStream({ keyEncoding: subEnc })) {
+          proms.push(base.del(node.key, { keyEncoding: subEnc }))
+        }
+
+        await Promise.all(proms)
+      }
+    } else {
+      await base.put(name, version, { keyEncoding: indexMetaSubEnc })
+    }
+
+    // TODO Consider implementing a version that walks through the history of the
+    // view
+    const watchers = ranges.map((range) => new RangeWatcher(
+      base.view, range, 0, (node) => cb(node, sub)))
+
+    return [sub, watchers]
   }
-
-  // TODO Consider implementing a version that walks through the history of the
-  // view
-  const watchers = ranges.map((range) => new RangeWatcher(base.view, range, 0, (node) => cb(node, sub)))
-
-  return [sub, watchers]
-}

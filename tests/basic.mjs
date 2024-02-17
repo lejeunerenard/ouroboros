@@ -39,10 +39,11 @@ test('basic', (t) => {
       sub.put(node.key, 2 * node.value))
 
     const rangeFor4x = sub.enc.encodeRange(range)
-    const [sub4x] = await createIndex('4x', base, rangeFor4x, async (node, mySub) => {
-      const key = sub.enc.decode(b4a.from(node.key))
-      await mySub.put(key, 2 * node.value)
-    })
+    const [sub4x] = await createIndex('4x', base, rangeFor4x,
+      async (node, mySub) => {
+        const key = sub.enc.decode(b4a.from(node.key))
+        await mySub.put(key, 2 * node.value)
+      })
 
     const key = 'entry!foo'
     await base.put(key, 2)
@@ -93,7 +94,9 @@ test('basic', (t) => {
         sub.put(node.key, node.value + 1))
 
       t.equal(sub.version, 1, 'defaults to version 1')
-      const { value: versionInDb } = await base.get('+1', { keyEncoding: indexMetaSubEnc })
+      const { value: versionInDb } = await base.get('+1', {
+        keyEncoding: indexMetaSubEnc
+      })
       t.equal(versionInDb, 1, 'db meta index sets version')
 
       await base.put('entry!foo', 1)
@@ -108,11 +111,11 @@ test('basic', (t) => {
       t.notEqual(notGone, null, 'foo indexed value isnt deleted')
 
       // Add .del support
-      const [subV2] = await createIndex('+1', base, range, async (node, sub) => {
-        return ('type' in node && node.type === 'del')
+      const [subV2] = await createIndex('+1', base, range,
+        async (node, sub) => ('type' in node && node.type === 'del')
           ? sub.del(node.key)
           : sub.put(node.key, node.value + 1)
-      }, { version: 2 })
+        , { version: 2 })
 
       // flush events
       await setTimeout(0)
@@ -134,23 +137,24 @@ test('basic', (t) => {
       { gte: 'subtract!', lt: bump(b4a.from('subtract!')) }
     ]
 
-    const [sub] = await createIndex('result', base, ranges, async (node, sub) => {
-      let total = 0
-      for (const range of ranges) {
-        for await (const node of base.view.createReadStream(range)) {
-          const op = node.key.split('!')[0]
-          switch (op) {
-            case 'add':
-              total += node.value
-              break
-            case 'subtract':
-              total -= node.value
-              break
+    const [sub] = await createIndex('result', base, ranges,
+      async (node, sub) => {
+        let total = 0
+        for (const range of ranges) {
+          for await (const node of base.view.createReadStream(range)) {
+            const op = node.key.split('!')[0]
+            switch (op) {
+              case 'add':
+                total += node.value
+                break
+              case 'subtract':
+                total -= node.value
+                break
+            }
           }
         }
-      }
-      await sub.put('total', total)
-    })
+        await sub.put('total', total)
+      })
 
     await base.put('add!a', 1)
     await base.put('add!b', 2)
