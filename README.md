@@ -19,7 +19,7 @@ import { wrap, apply, createIndex } from 'ouroboros'
 const store = new Corestore('./db')
 const bootstrap = null
 const open = (viewStore) => {
-  const core = viewStore.get('ouroborus')
+  const core = viewStore.get('ouroboros')
   return new Hyperbee(core, {
     keyEncoding: 'utf-8',
     valueEncoding: 'json',
