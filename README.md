@@ -39,6 +39,8 @@ const [sub] = createIndex('2x', base, range, async (node, sub) =>
 const key = 'entry!foo'
 await base.put(key, 2)
 
+await sub.update()
+
 const node = await sub.get(key)
 console.log(node.value) // 4
 ```
