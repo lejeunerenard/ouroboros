@@ -1,9 +1,9 @@
 # Ouroboros
 
-This module provides a way to do derived indexes on autobase hyperbees. This is
-done by creating an api similar to SimpleAutobee to support hyperbee operations
-w/ autobase, but also providing simple ways to watch key ranges and derive
-values base on changes to those ranges as well.
+This module provides a way to define derived indexes on autobase hyperbees.
+This is done by creating an api similar to SimpleAutobee to support hyperbee
+operations w/ autobase, but also providing simple ways to watch key ranges and
+derive values base on changes to those ranges as well.
 
 The ability for indexes to update based on themselves or other indexes is liked
 to eating its own tail, hence Ouroboros. Be wary of infinite loops.
