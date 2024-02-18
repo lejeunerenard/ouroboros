@@ -1,5 +1,5 @@
 {
-  "name": "ouroboros",
+  "name": "@lejeunerenard/ouroboros",
   "version": "1.0.0",
   "description": "This module provides a way to do secondary indexes on autobase hyperbees. This is done by creating an api similar to SimpleAutobee to support hyperbee operations w/ autobase, but also providing simple ways to watch key ranges and derive values base on changes to those ranges as well.",
   "main": "index.mjs",
