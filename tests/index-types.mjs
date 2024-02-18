@@ -71,5 +71,64 @@ test('test various index types', (t) => {
       const total = await sub.get('total')
       t.equal(total.value, 8)
     })
+
+    t.test('over sub range', async (t) => {
+      const base = makeBase()
+      const range = { gte: 'entry!', lt: bump(b4a.from('entry!')) }
+      const [sub] = await createIndex('sum', base, range, async (node, sub) => {
+        await sub.put(node.key, node.value * 2)
+
+        let total = 0
+        for await (const node of sub.createReadStream(range)) {
+          total += node.value
+        }
+        await sub.put('total', total)
+      })
+
+      await base.put('entry!a', 1)
+      await base.put('entry!b', 2)
+      await base.put('entry!c', 3)
+      await base.put('entry!a', 3)
+
+      await sub.update()
+
+      const total = await sub.get('total')
+      t.equal(total.value, 16)
+    })
+
+    t.test('sub peek', async (t) => {
+      const base = makeBase()
+      const range = { gte: 'n!', lt: bump(b4a.from('n!')) }
+      const [sub] = await createIndex('f(n)', base, range, async (node, sub) => {
+        const n = node.value
+        const nStr = String(n).padStart(3)
+        let factIter = 0
+        const nMinus1 = await sub.peek({ lt: b4a.from(nStr), reverse: true })
+        if (nMinus1) {
+          factIter += nMinus1.value
+
+          // Attempt n-2
+          const nMinus2 = await sub.peek({ lt: nMinus1.key, reverse: true })
+          if (nMinus2) {
+            factIter += nMinus2.value
+          } else {
+            factIter = 1
+          }
+        } else {
+          factIter = 1
+        }
+
+        await sub.put(nStr, factIter)
+      })
+
+      for (let i = 1; i <= 16; i++) {
+        await base.put('n!' + String(i).padStart(3), i)
+      }
+
+      await sub.update()
+
+      const total = await sub.get(String(16).padStart(3))
+      t.equal(total.value, 987, 'implement fibonacci numbers w/ peek')
+    })
   })
 })
