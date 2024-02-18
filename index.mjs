@@ -25,7 +25,7 @@ export const apply = async (batch, bee, base) => {
   const b = bee.batch({ update: false })
 
   for (const node of batch) {
-    debug && console.log('-> node', node)
+    debug && console.log('-> node.value', node.value)
     const hyperbeeOp = 'type' in node.value
     if (
       !hyperbeeOp ||
@@ -110,6 +110,7 @@ export const createIndex =
     const prevVersion = await base.get(name, { keyEncoding: indexMetaSubEnc })
     debug && console.log('prevVersion', prevVersion, 'version', version)
     if (prevVersion && prevVersion.value < version) {
+      // TODO implement updating index as a batch append
       await base.put(name, version, { keyEncoding: indexMetaSubEnc })
       if (prevVersion) {
         const proms = []
