@@ -44,6 +44,8 @@ test('test various index types', (t) => {
       await base.put('entry!b', 2)
       await base.put('entry!c', 3)
 
+      await sub.update()
+
       const total = await sub.get('total')
       t.equal(total.value, 6)
     })
@@ -63,6 +65,8 @@ test('test various index types', (t) => {
       await base.put('entry!b', 2)
       await base.put('entry!c', 3)
       await base.put('entry!a', 3)
+
+      await sub.update()
 
       const total = await sub.get('total')
       t.equal(total.value, 8)

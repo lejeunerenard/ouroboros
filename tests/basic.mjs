@@ -3,7 +3,6 @@ import Autobase from 'autobase'
 import Hyperbee from 'hyperbee'
 import Corestore from 'corestore'
 import RAM from 'random-access-memory'
-import { setTimeout } from 'timers/promises'
 import b4a from 'b4a'
 import { apply, createIndex, wrap, indexMetaSubEnc } from '../index.mjs'
 
@@ -48,6 +47,8 @@ test('basic', (t) => {
     const key = 'entry!foo'
     await base.put(key, 2)
 
+    await sub.update()
+
     const originalNode = await base.get(key)
     t.equal(originalNode.value, 2, 'default put took')
     const node = await sub.get(key)
@@ -72,12 +73,15 @@ test('basic', (t) => {
 
     const key = 'entry!foo'
     await base.put(key, 2)
+    await sub.update()
+
     const originalNode = await base.get(key)
     t.equal(originalNode.value, 2, 'default put took')
     const node = await sub.get(key)
     t.equal(node.value, 4, 'derived value is 2 times')
 
     await base.del(key)
+    await sub.update()
     const delNode = await base.get(key)
     t.equal(delNode, null)
 
@@ -117,8 +121,7 @@ test('basic', (t) => {
           : sub.put(node.key, node.value + 1)
         , { version: 2 })
 
-      // flush events
-      await setTimeout(0)
+      await subV2.update()
 
       const indexRemoved = await subV2.get('entry!foo')
       t.equal(indexRemoved, null, 'index values removed w/ new version')
@@ -161,6 +164,8 @@ test('basic', (t) => {
     await base.put('subtract!c', 3)
     await base.put('add!a', 4)
     await base.put('foo', 3)
+
+    await sub.update()
 
     const total = await sub.get('total')
     t.equal(total.value, 3)

@@ -1,19 +1,19 @@
 import SubEncoder from 'sub-encoder'
 import { RangeWatcher } from '@lejeunerenard/hyperbee-range-watcher-autobase'
-import { setTimeout } from 'timers/promises'
+import { EventEmitter } from 'events'
 
 export const wrap = (base) => {
-  base.put = async (key, value, opts) => base.append({
+  base.put = (key, value, opts) => base.append({
     type: 'put',
     key,
     value,
     opts
-  }).then((...args) => setTimeout(0, ...args))
+  })
 
-  base.del = async (key, opts) => base.append({ type: 'del', key, opts })
-    .then((...args) => setTimeout(0, ...args))
+  base.del = (key, opts) => base.append({ type: 'del', key, opts })
 
-  base.get = async (key, opts) => base.view.get(key, opts)
+  base.get = (key, opts) => base.view.get(key, opts)
+
   return base
 }
 
@@ -50,6 +50,44 @@ export const INDEX_META_NS = 'indexes-meta'
 const indexMetaEnc = new SubEncoder()
 export const indexMetaSubEnc = indexMetaEnc.sub(INDEX_META_NS)
 
+class SubIndex extends EventEmitter {
+  constructor (name, base, version) {
+    super()
+
+    this.name = name
+    this.base = base
+    this.version = version
+
+    const enc = new SubEncoder()
+    const subEnc = enc.sub(name)
+    this.enc = subEnc
+    this._updateTimeout = null
+    this._emitUpdate = () => {
+      clearTimeout(this._updateTimeout)
+      this._updateTimeout = setTimeout(() => {
+        this.emit('update')
+      })
+    }
+  }
+
+  async update () {
+    return new Promise((resolve) => this.once('update', resolve))
+  }
+
+  put (key, value) {
+    return this.base.put(key, value, { keyEncoding: this.enc })
+  }
+
+  del (key) {
+    return this.base.del(key, { keyEncoding: this.enc })
+  }
+
+  get (key) {
+    // TODO Support other options
+    return this.base.get(key, { keyEncoding: this.enc })
+  }
+}
+
 export const createIndex =
   async (name, base, ranges, cb, opts = { version: 1 }) => {
     const debug = false
@@ -57,22 +95,7 @@ export const createIndex =
 
     if (!Array.isArray(ranges)) ranges = [ranges]
 
-    const enc = new SubEncoder()
-    const subEnc = enc.sub(name)
-    const sub = {
-      enc: subEnc,
-      version,
-      async put (key, value) {
-        return base.put(key, value, { keyEncoding: subEnc })
-      },
-      async del (key) {
-        return base.del(key, { keyEncoding: subEnc })
-      },
-      async get (key) {
-      // TODO Support other options
-        return base.get(key, { keyEncoding: subEnc })
-      }
-    }
+    const sub = new SubIndex(name, base, version)
 
     const prevVersion = await base.get(name, { keyEncoding: indexMetaSubEnc })
     debug && console.log('prevVersion', prevVersion, 'version', version)
@@ -80,8 +103,8 @@ export const createIndex =
       await base.put(name, version, { keyEncoding: indexMetaSubEnc })
       if (prevVersion) {
         const proms = []
-        for await (const node of base.view.createReadStream({ keyEncoding: subEnc })) {
-          proms.push(base.del(node.key, { keyEncoding: subEnc }))
+        for await (const node of base.view.createReadStream({ keyEncoding: sub.enc })) {
+          proms.push(base.del(node.key, { keyEncoding: sub.enc }))
         }
 
         await Promise.all(proms)
@@ -93,7 +116,10 @@ export const createIndex =
     // TODO Consider implementing a version that walks through the history of the
     // view
     const watchers = ranges.map((range) => new RangeWatcher(
-      base.view, range, 0, (node) => cb(node, sub)))
+      base.view, range, 0, async (node) => {
+        await cb(node, sub)
+        sub._emitUpdate()
+      }))
 
     return [sub, watchers]
   }
