@@ -72,7 +72,7 @@ class SubIndex extends EventEmitter {
     }
   }
 
-  async update () {
+  update () {
     return new Promise((resolve) => this.once('update', resolve))
   }
 
