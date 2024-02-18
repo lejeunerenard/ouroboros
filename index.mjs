@@ -13,7 +13,9 @@ export const wrap = (base) => {
   base.del = (key, opts) => base.append({ type: 'del', key, opts })
 
   base.get = (key, opts) => base.view.get(key, opts)
+
   base.peek = (opts) => base.view.peek(opts)
+
   base.createReadStream = (range, opts) => base.view.createReadStream(range, opts)
 
   return base
