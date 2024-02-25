@@ -14,7 +14,7 @@ to eating its own tail, hence Ouroboros. Be wary of infinite loops.
 import Autobase from 'autobase'
 import Corestore from 'corestore'
 import b4a from 'b4a'
-import { wrap, apply, createIndex } from 'ouroboros'
+import { wrap, apply, createIndex } from '@lejeunerenard/ouroboros'
 
 const store = new Corestore('./db')
 const bootstrap = null
