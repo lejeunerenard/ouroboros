@@ -109,6 +109,9 @@ export const createIndex =
 
     const sub = new SubIndex(name, base, version)
 
+    // Default to only watching since db version when index is created
+    let dbVersionBefore = base.view.version
+
     const prevVersion = await base.get(name, { keyEncoding: indexMetaSubEnc })
     debug && console.log('prevVersion', prevVersion, 'version', version)
     if (prevVersion && prevVersion.value < version) {
@@ -121,6 +124,7 @@ export const createIndex =
         }
 
         await Promise.all(proms)
+        dbVersionBefore = 0
       }
     } else {
       await base.put(name, version, { keyEncoding: indexMetaSubEnc })
@@ -129,7 +133,7 @@ export const createIndex =
     // TODO Consider implementing a version that walks through the history of the
     // view
     const watchers = ranges.map((range) => new RangeWatcher(
-      base.view, range, 0, async (node) => {
+      base.view, range, dbVersionBefore, async (node) => {
         await cb(node, sub)
         sub._emitUpdate()
       }))
