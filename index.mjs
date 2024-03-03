@@ -128,7 +128,7 @@ export const createIndex =
         await Promise.all(proms)
         dbVersionBefore = 0
       }
-    } else {
+    } else if (!prevVersion) {
       await base.put(name, version, { keyEncoding: indexMetaSubEnc })
     }
 
