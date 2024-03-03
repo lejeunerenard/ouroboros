@@ -11,8 +11,9 @@ function bump (key) {
   return key
 }
 
-function makeBase () {
-  const store = new Corestore(RAM)
+function makeBase (opts = {}) {
+  const storage = opts.storage || (() => RAM.reusable())
+  const store = new Corestore(storage())
   const bootstrap = null
   const open = (viewStore) => {
     const core = viewStore.get('ouroboros')
@@ -56,6 +57,42 @@ test('basic', (t) => {
 
     const node4x = await sub4x.get(key)
     t.equal(node4x.value, 8, 'double derived value is 4 times')
+  })
+
+  t.test('starts from current version', async (t) => {
+    t.plan(4)
+    const reusable = RAM.reusable()
+    const storage = () => reusable
+    const base = makeBase({ storage })
+
+    const range = { gte: 'entry!', lt: bump(b4a.from('entry!')) }
+    const [sub] = await createIndex('sum', base, range, async (node, sub) => {
+      const total = await sub.get('total')
+      await sub.put('total', node.value + (total !== null ? total.value : 0))
+    })
+
+    await base.put('entry!foo', 2)
+    await base.put('entry!bar', 3)
+    await base.put('entry!baz', 4)
+
+    await sub.update()
+
+    t.equal((await sub.get('total')).value, 9)
+    await base.close()
+
+    const base2 = makeBase({ storage })
+    const [sub2] = await createIndex('sum', base2, range, async (node, sub) => {
+      const total = await sub.get('total')
+      t.equal(total.value, 9)
+      await sub.put('total', node.value + (total !== null ? total.value : 0))
+    })
+
+    t.deepEquals(base.key, base2.key, 'loaded the same autobase')
+
+    await base2.put('entry!biz', 5)
+    await sub2.update()
+
+    t.equal((await sub2.get('total')).value, 14)
   })
 
   t.test('supports .del()', async (t) => {

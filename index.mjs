@@ -109,6 +109,8 @@ export const createIndex =
 
     const sub = new SubIndex(name, base, version)
 
+    await base.ready()
+
     // Default to only watching since db version when index is created
     let dbVersionBefore = base.view.version
 
