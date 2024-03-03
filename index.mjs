@@ -134,11 +134,16 @@ export const createIndex =
 
     // TODO Consider implementing a version that walks through the history of the
     // view
-    const watchers = ranges.map((range) => new RangeWatcher(
-      base.view, range, dbVersionBefore, async (node) => {
-        await cb(node, sub)
-        sub._emitUpdate()
-      }))
+    const watchers = ranges.map((range) => {
+      const watcher = new RangeWatcher(
+        base.view, range, dbVersionBefore, async (node) => {
+          await cb(node, sub)
+          sub._emitUpdate()
+
+          watcher.update().then(() => sub.emit('drain'))
+        })
+      return watcher
+    })
 
     return [sub, watchers]
   }

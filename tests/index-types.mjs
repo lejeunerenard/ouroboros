@@ -4,6 +4,7 @@ import Hyperbee from 'hyperbee'
 import Corestore from 'corestore'
 import RAM from 'random-access-memory'
 import b4a from 'b4a'
+import { setTimeout } from 'timers/promises'
 import { apply, createIndex, wrap } from '../index.mjs'
 
 function bump (key) {
@@ -130,5 +131,44 @@ test('test various index types', (t) => {
       const total = await sub.get(String(16).padStart(3))
       t.equal(total.value, 987, 'implement fibonacci numbers w/ peek')
     })
+  })
+
+  t.test('slow indexes', async (t) => {
+    const base = makeBase()
+    const range = { gte: 'entry!', lt: bump(b4a.from('entry!')) }
+    const [sub] = await createIndex('seconds later', base, range, async (node, sub) => {
+      await setTimeout(50)
+      await sub.put(node.key, node.value)
+    })
+
+    const getKey = (i) => 'entry!' + String(i).padStart(3)
+    for (let i = 1; i <= 16; i++) {
+      await base.put(getKey(i), i)
+    }
+
+    await new Promise((resolve) => sub.on('drain', resolve))
+
+    const total = await sub.get(getKey(16))
+    t.notEqual(total, null, 'index was written to')
+  })
+
+  t.test('many deferred indexes', async (t) => {
+    const base = makeBase()
+    const range = { gte: 'entry!', lt: bump(b4a.from('entry!')) }
+    const [sub] = await createIndex('ski', base, range, async (node, sub) => {
+      await setTimeout(0)
+      await sub.put(node.key, node.value)
+    })
+
+    const many = 100
+    const getKey = (i) => 'entry!' + String(i).padStart(3)
+    for (let i = 1; i <= many; i++) {
+      await base.put(getKey(i), i)
+    }
+
+    await new Promise((resolve) => sub.on('drain', resolve))
+
+    const total = await sub.get(getKey(many))
+    t.notEqual(total, null, 'index was written to')
   })
 })
