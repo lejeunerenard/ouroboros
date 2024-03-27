@@ -119,15 +119,14 @@ export const createIndex =
     if (prevVersion && prevVersion.value < version) {
       // TODO implement updating index as a batch append
       await base.put(name, version, { keyEncoding: indexMetaSubEnc })
-      if (prevVersion) {
-        const proms = []
-        for await (const node of base.view.createReadStream({ keyEncoding: sub.enc })) {
-          proms.push(base.del(node.key, { keyEncoding: sub.enc }))
-        }
 
-        await Promise.all(proms)
-        dbVersionBefore = 0
+      const proms = []
+      for await (const { key } of base.view.createReadStream({ keyEncoding: sub.enc })) {
+        proms.push(base.del(key, { keyEncoding: sub.enc }))
       }
+
+      await Promise.all(proms)
+      dbVersionBefore = 0
     } else if (!prevVersion) {
       await base.put(name, version, { keyEncoding: indexMetaSubEnc })
     }
