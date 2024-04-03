@@ -1,6 +1,7 @@
 # Ouroboros
 
-This module provides a way to define derived indexes on autobase hyperbees.
+Define derived indexes on autobase hyperbees.
+
 This is done by creating an api similar to SimpleAutobee to support hyperbee
 operations w/ autobase, but also providing simple ways to watch key ranges and
 derive values base on changes to those ranges as well.
