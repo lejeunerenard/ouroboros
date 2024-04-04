@@ -22,7 +22,7 @@
     "tape": "^5.7.4"
   },
   "dependencies": {
-    "@lejeunerenard/hyperbee-range-watcher-autobase": "github:lejeunerenard/hyperbee-range-watcher-autobase#1.1.0",
+    "@lejeunerenard/hyperbee-range-watcher-autobase": "github:lejeunerenard/hyperbee-range-watcher-autobase#hyperbee-diff-stream",
     "hyperbee": "^2.18.2",
     "sub-encoder": "^2.1.3"
   }

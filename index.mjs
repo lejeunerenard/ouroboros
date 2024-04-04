@@ -112,7 +112,7 @@ export const createIndex =
     await base.ready()
 
     // Default to only watching since db version when index is created
-    let dbVersionBefore = base.view.version
+    let dbVersionBefore = base.view.snapshot()
 
     const prevVersion = await base.get(name, { keyEncoding: indexMetaSubEnc })
     debug && console.log('prevVersion', prevVersion, 'version', version)
@@ -126,7 +126,7 @@ export const createIndex =
       }
 
       await Promise.all(proms)
-      dbVersionBefore = 0
+      dbVersionBefore = base.view.checkout(1)
     } else if (!prevVersion) {
       await base.put(name, version, { keyEncoding: indexMetaSubEnc })
     }
