@@ -78,6 +78,10 @@ class SubIndex extends EventEmitter {
     return new Promise((resolve) => this.once('update', resolve))
   }
 
+  drained () {
+    return new Promise((resolve) => this.once('drain', resolve))
+  }
+
   put (key, value) {
     return this.base.put(key, value, { keyEncoding: this.enc })
   }

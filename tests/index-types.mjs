@@ -136,8 +136,12 @@ test('test various index types', (t) => {
   t.test('slow indexes', async (t) => {
     const base = makeBase()
     const range = { gte: 'entry!', lt: bump(b4a.from('entry!')) }
+
+    // Increase work with each iteration to simulate "exponential work"
+    let runCount = 1
     const [sub] = await createIndex('seconds later', base, range, async (node, sub) => {
-      await setTimeout(50)
+      runCount++
+      await setTimeout(runCount * 50)
       await sub.put(node.key, node.value)
     })
 
@@ -146,7 +150,7 @@ test('test various index types', (t) => {
       await base.put(getKey(i), i)
     }
 
-    await new Promise((resolve) => sub.on('drain', resolve))
+    await sub.drained()
 
     const total = await sub.get(getKey(16))
     t.notEqual(total, null, 'index was written to')

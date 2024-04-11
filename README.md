@@ -101,3 +101,7 @@ the index has been updated based on the `ranges`' changes.
 Triggered after a index callback is triggered and the watcher updates. Like
 stream's `drain` event, this event signals that the index is catch up and ready
 for more updates.
+
+#### `await sub.drained()`
+
+Returns a promise that is resolved when the next drain event is emitted.
