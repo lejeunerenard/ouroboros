@@ -82,7 +82,8 @@ for the index.
 ### `SubIndex`
 
 Represents the index's db and provides a similar API to a `Hyperbee` database.
-Can only be created via `createIndex()`. Currently supports:
+Can only be created via `createIndex()`. Currently supports the following
+`Hyperbee` methods:
 
 - `await sub.put(key, value)`
 - `await sub.del(key)`
@@ -96,12 +97,8 @@ Can only be created via `createIndex()`. Currently supports:
 This debounced event triggers after the `callback` finishes running indicating
 the index has been updated based on the `ranges`' changes.
 
-#### `drain` event
-
-Triggered after a index callback is triggered and the watcher updates. Like
-stream's `drain` event, this event signals that the index is catch up and ready
-for more updates.
-
 #### `await sub.drained()`
 
-Returns a promise that is resolved when the next drain event is emitted.
+Triggered after a index callback is finished processing changes. Like stream's
+`drain` event, this event signals that the index is caught up and ready for more
+updates.

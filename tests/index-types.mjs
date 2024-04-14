@@ -170,7 +170,7 @@ test('test various index types', (t) => {
       await base.put(getKey(i), i)
     }
 
-    await new Promise((resolve) => sub.on('drain', resolve))
+    await sub.drained()
 
     const total = await sub.get(getKey(many))
     t.notEqual(total, null, 'index was written to')

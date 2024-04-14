@@ -4,6 +4,7 @@ import Hyperbee from 'hyperbee'
 import Corestore from 'corestore'
 import RAM from 'random-access-memory'
 import b4a from 'b4a'
+import { setTimeout } from 'timers/promises'
 import { apply, createIndex, wrap, indexMetaSubEnc } from '../index.mjs'
 
 function bump (key) {
@@ -206,5 +207,87 @@ test('basic', (t) => {
 
     const total = await sub.get('total')
     t.equal(total.value, 3)
+  })
+
+  t.test('update()', (t) => {
+    t.test('basic', async (t) => {
+      t.plan(2)
+      const base = makeBase()
+      const ranges = [
+        { gte: 'foo!', lt: bump(b4a.from('foo!')) }
+      ]
+
+      const [sub] = await createIndex('result', base, ranges,
+        async (node, sub) => sub.put('latest', node.value))
+
+      // Test that the update returns when there is nothing to process
+      await sub.update()
+      t.pass('immediately runs')
+
+      await base.put('foo!a', 1)
+      await base.put('foo!b', 2)
+      await base.put('foo!c', 4)
+      await base.put('foo!a', 9)
+      await base.put('foo!0', 3)
+
+      // Clears updates
+      await sub.update()
+
+      const latest = await sub.get('latest')
+      t.equal(latest.value, 3)
+    })
+
+    t.test('doesnt wait', async (t) => {
+      t.plan(2)
+      const base = makeBase()
+      const ranges = [
+        { gte: 'delay!', lt: bump(b4a.from('delay!')) }
+      ]
+
+      const [sub] = await createIndex('result', base, ranges,
+        async (node, sub) => {
+          await setTimeout(node.value)
+          await sub.put('latest', node.key)
+        })
+
+      // Test that the update returns when there is nothing to process
+      await sub.update()
+      t.pass('immediately runs')
+
+      await base.put('delay!a', 0)
+      await base.put('delay!b', 50)
+      await base.put('delay!0', 50)
+
+      // Clears updates
+      await sub.update()
+
+      const latest = await sub.get('latest')
+      t.equal(latest.value, 'delay!a', 'first key was last key after update')
+    })
+  })
+
+  t.test('drained()', async (t) => {
+    t.plan(1)
+    const base = makeBase()
+    const ranges = [
+      { gte: 'delay!', lt: bump(b4a.from('delay!')) }
+    ]
+
+    const [sub] = await createIndex('result', base, ranges,
+      async (node, sub) => {
+        await setTimeout(10)
+        await sub.put('latest', node.key)
+      })
+
+    await base.put('delay!a', 0)
+    await base.put('delay!0', 50)
+    // TODO No guarantee that just because the key was updated last that it is the last run in the index if jumping versions
+    await base.put('delay!1', 50)
+
+    // Clears updates
+    await sub.drained()
+
+    const latest = await sub.get('latest')
+    t.equal(latest.value, 'delay!1', 'waited for last put')
   })
 })

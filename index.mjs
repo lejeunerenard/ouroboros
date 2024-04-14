@@ -65,6 +65,8 @@ class SubIndex extends EventEmitter {
     const enc = new SubEncoder()
     const subEnc = enc.sub(name)
     this.enc = subEnc
+
+    this._watchers = []
     this._updateTimeout = null
     this._emitUpdate = () => {
       clearTimeout(this._updateTimeout)
@@ -74,12 +76,28 @@ class SubIndex extends EventEmitter {
     }
   }
 
-  update () {
-    return new Promise((resolve) => this.once('update', resolve))
+  async update () {
+    const oldestWatcher = this._watchers.reduce((oldest, w) =>
+      w.latest.version <= oldest.latest.version ? w : oldest, {
+      latest: {
+        version: Infinity
+      }
+    })
+
+    if (this.base.view.version !== oldestWatcher.latest.version) {
+      return Promise.any([
+        oldestWatcher.update(),
+        // drop out early for  immediate updates
+        new Promise((resolve) => this.once('update', resolve))
+      ])
+    }
   }
 
-  drained () {
-    return new Promise((resolve) => this.once('drain', resolve))
+  async drained () {
+    // Wait for watchers to process current input
+    await Promise.all(this._watchers.map((w) => w.update()))
+    // ensure base is update to date
+    return this.update()
   }
 
   put (key, value) {
@@ -142,9 +160,8 @@ export const createIndex =
         base.view, range, dbVersionBefore, async (node) => {
           await cb(node, sub)
           sub._emitUpdate()
-
-          watcher.update().then(() => sub.emit('drain'))
         })
+      sub._watchers.push(watcher)
       return watcher
     })
 
