@@ -84,7 +84,7 @@ class SubIndex extends EventEmitter {
       }
     })
 
-    if (this.base.view.version !== oldestWatcher.latest.version) {
+    if (this.base.view.version > oldestWatcher.latest.version) {
       return Promise.any([
         oldestWatcher.update(),
         // drop out early for  immediate updates
@@ -151,6 +151,9 @@ export const createIndex =
       dbVersionBefore = base.view.checkout(1)
     } else if (!prevVersion) {
       await base.put(name, version, { keyEncoding: indexMetaSubEnc })
+    } else if (prevVersion.value > version) {
+      console.warn(`The current index version [${prevVersion.value}] is newer than the declared version [${version}]. Upgrade needed. No indexing will happen.`)
+      return [sub]
     }
 
     // TODO Consider implementing a version that walks through the history of the

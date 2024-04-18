@@ -208,6 +208,30 @@ test('basic', (t) => {
 
       t.end()
     })
+
+    t.test('declaring older version index doesnt run', async (t) => {
+      const base = makeBase()
+
+      // Artificially set version to 2
+      await base.put('+1', 2, {
+        keyEncoding: indexMetaSubEnc
+      })
+
+      const range = { gte: 'entry!', lt: bump(b4a.from('entry!')) }
+      const [sub] = await createIndex('+1', base, range, async (node, sub) => {
+        t.fail('fired callback even though version is old')
+      }, { version: 1 })
+
+      // Attempt to trigger index
+      await base.put('entry!baz', 3)
+
+      await sub.drained()
+
+      const shouldntExist = await sub.get('entry!baz')
+      t.equal(shouldntExist, null, 'new entry wasn\'t added')
+
+      t.end()
+    })
   })
 
   t.test('two range dependencies', async (t) => {
