@@ -60,7 +60,7 @@ test('basic', (t) => {
     t.equal(node4x.value, 8, 'double derived value is 4 times')
   })
 
-  t.test('starts from current version', async (t) => {
+  t.test('starts from current bee version', async (t) => {
     t.plan(4)
     const reusable = RAM.reusable()
     const storage = () => reusable
@@ -166,6 +166,45 @@ test('basic', (t) => {
 
       const barNodeV2 = await subV2.get('entry!bar')
       t.notEqual(barNodeV2, null, 'existing keys are processed immediately')
+
+      t.end()
+    })
+
+    t.test('version upgrade w/o callback update stops indexing', async (t) => {
+      const base = makeBase()
+
+      const range = { gte: 'entry!', lt: bump(b4a.from('entry!')) }
+      const shouldTrigger = true
+      const [sub] = await createIndex('+1', base, range, async (node, sub) => {
+        if (!shouldTrigger) t.fail('fired callback even though version is old')
+        return sub.put(node.key, node.value + 1)
+      })
+
+      // Check version tracking
+      t.equal(sub.version, 1, 'defaults to version 1')
+      const { value: versionInDb } = await base.get('+1', {
+        keyEncoding: indexMetaSubEnc
+      })
+      t.equal(versionInDb, 1, 'db meta index sets version')
+
+      await base.put('entry!foo', 1)
+      await base.put('entry!bar', 2)
+
+      const is2 = await sub.get('entry!foo')
+      t.equal(is2.value, 2, '1 + 1 = 2')
+
+      // Artificially upgrade aka simulate peer updates version
+      await base.put('+1', 2, {
+        keyEncoding: indexMetaSubEnc
+      })
+
+      // Attempt to trigger index
+      await base.put('entry!baz', 3)
+
+      await sub.drained()
+
+      const shouldntExist = await sub.get('entry!baz')
+      t.equal(shouldntExist, null, 'new entry wasn\'t added')
 
       t.end()
     })

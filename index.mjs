@@ -165,5 +165,12 @@ export const createIndex =
       return watcher
     })
 
+    const indexVersionWatcher = await base.view.getAndWatch(name, { keyEncoding: indexMetaSubEnc })
+    indexVersionWatcher.on('update', () => {
+      if (indexVersionWatcher.node.value > version) {
+        watchers.map((w) => w.close())
+      }
+    })
+
     return [sub, watchers]
   }
