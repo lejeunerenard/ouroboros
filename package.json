@@ -10,6 +10,12 @@
   "keywords": [],
   "author": "Sean Zellmer <sean@lejeunerenard.com> (http://lejeunerenard.com/)",
   "license": "MIT",
+  "imports": {
+    "events": {
+      "bare": "bare-events",
+      "default": "events"
+    }
+  },
   "devDependencies": {
     "autobase": "^6.0.0-rc0",
     "corestore": "^6.16.2",
@@ -25,5 +31,8 @@
     "@lejeunerenard/hyperbee-range-watcher-autobase": "github:lejeunerenard/hyperbee-range-watcher-autobase#hyperbee-diff-stream",
     "hyperbee": "^2.18.2",
     "sub-encoder": "^2.1.3"
+  },
+  "optionalDependencies": {
+    "bare-events": "^2.2.2"
   }
 }
