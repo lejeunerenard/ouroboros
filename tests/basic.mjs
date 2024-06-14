@@ -4,6 +4,7 @@ import Hyperbee from 'hyperbee'
 import Corestore from 'corestore'
 import RAM from 'random-access-memory'
 import b4a from 'b4a'
+import { setTimeout } from 'timers/promises'
 import { apply, createIndex, wrap, indexMetaSubEnc } from '../index.mjs'
 
 function bump (key) {
@@ -59,7 +60,7 @@ test('basic', (t) => {
     t.equal(node4x.value, 8, 'double derived value is 4 times')
   })
 
-  t.test('starts from current version', async (t) => {
+  t.test('starts from current bee version', async (t) => {
     t.plan(4)
     const reusable = RAM.reusable()
     const storage = () => reusable
@@ -168,6 +169,69 @@ test('basic', (t) => {
 
       t.end()
     })
+
+    t.test('version upgrade w/o callback update stops indexing', async (t) => {
+      const base = makeBase()
+
+      const range = { gte: 'entry!', lt: bump(b4a.from('entry!')) }
+      const shouldTrigger = true
+      const [sub] = await createIndex('+1', base, range, async (node, sub) => {
+        if (!shouldTrigger) t.fail('fired callback even though version is old')
+        return sub.put(node.key, node.value + 1)
+      })
+
+      // Check version tracking
+      t.equal(sub.version, 1, 'defaults to version 1')
+      const { value: versionInDb } = await base.get('+1', {
+        keyEncoding: indexMetaSubEnc
+      })
+      t.equal(versionInDb, 1, 'db meta index sets version')
+
+      await base.put('entry!foo', 1)
+      await base.put('entry!bar', 2)
+
+      const is2 = await sub.get('entry!foo')
+      t.equal(is2.value, 2, '1 + 1 = 2')
+
+      // Artificially upgrade aka simulate peer updates version
+      await base.put('+1', 2, {
+        keyEncoding: indexMetaSubEnc
+      })
+
+      // Attempt to trigger index
+      await base.put('entry!baz', 3)
+
+      await sub.drained()
+
+      const shouldntExist = await sub.get('entry!baz')
+      t.equal(shouldntExist, null, 'new entry wasn\'t added')
+
+      t.end()
+    })
+
+    t.test('declaring older version index doesnt run', async (t) => {
+      const base = makeBase()
+
+      // Artificially set version to 2
+      await base.put('+1', 2, {
+        keyEncoding: indexMetaSubEnc
+      })
+
+      const range = { gte: 'entry!', lt: bump(b4a.from('entry!')) }
+      const [sub] = await createIndex('+1', base, range, async (node, sub) => {
+        t.fail('fired callback even though version is old')
+      }, { version: 1 })
+
+      // Attempt to trigger index
+      await base.put('entry!baz', 3)
+
+      await sub.drained()
+
+      const shouldntExist = await sub.get('entry!baz')
+      t.equal(shouldntExist, null, 'new entry wasn\'t added')
+
+      t.end()
+    })
   })
 
   t.test('two range dependencies', async (t) => {
@@ -206,5 +270,87 @@ test('basic', (t) => {
 
     const total = await sub.get('total')
     t.equal(total.value, 3)
+  })
+
+  t.test('update()', (t) => {
+    t.test('basic', async (t) => {
+      t.plan(2)
+      const base = makeBase()
+      const ranges = [
+        { gte: 'foo!', lt: bump(b4a.from('foo!')) }
+      ]
+
+      const [sub] = await createIndex('result', base, ranges,
+        async (node, sub) => sub.put('latest', node.value))
+
+      // Test that the update returns when there is nothing to process
+      await sub.update()
+      t.pass('immediately runs')
+
+      await base.put('foo!a', 1)
+      await base.put('foo!b', 2)
+      await base.put('foo!c', 4)
+      await base.put('foo!a', 9)
+      await base.put('foo!0', 3)
+
+      // Clears updates
+      await sub.update()
+
+      const latest = await sub.get('latest')
+      t.equal(latest.value, 3)
+    })
+
+    t.test('doesnt wait', async (t) => {
+      t.plan(2)
+      const base = makeBase()
+      const ranges = [
+        { gte: 'delay!', lt: bump(b4a.from('delay!')) }
+      ]
+
+      const [sub] = await createIndex('result', base, ranges,
+        async (node, sub) => {
+          await setTimeout(node.value)
+          await sub.put('latest', node.key)
+        })
+
+      // Test that the update returns when there is nothing to process
+      await sub.update()
+      t.pass('immediately runs')
+
+      await base.put('delay!a', 0)
+      await base.put('delay!b', 50)
+      await base.put('delay!0', 50)
+
+      // Clears updates
+      await sub.update()
+
+      const latest = await sub.get('latest')
+      t.equal(latest.value, 'delay!a', 'first key was last key after update')
+    })
+  })
+
+  t.test('drained()', async (t) => {
+    t.plan(1)
+    const base = makeBase()
+    const ranges = [
+      { gte: 'delay!', lt: bump(b4a.from('delay!')) }
+    ]
+
+    const [sub] = await createIndex('result', base, ranges,
+      async (node, sub) => {
+        await setTimeout(10)
+        await sub.put('latest', node.key)
+      })
+
+    await base.put('delay!a', 0)
+    await base.put('delay!0', 50)
+    // TODO No guarantee that just because the key was updated last that it is the last run in the index if jumping versions
+    await base.put('delay!1', 50)
+
+    // Clears updates
+    await sub.drained()
+
+    const latest = await sub.get('latest')
+    t.equal(latest.value, 'delay!1', 'waited for last put')
   })
 })

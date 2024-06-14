@@ -1,16 +1,30 @@
 import SubEncoder from 'sub-encoder'
 import { RangeWatcher } from '@lejeunerenard/hyperbee-range-watcher-autobase'
 import { EventEmitter } from 'events'
+import b4a from 'b4a'
 
 export const wrap = (base) => {
-  base.put = (key, value, opts) => base.append({
-    type: 'put',
-    key,
-    value,
-    opts
-  })
+  base.put = (key, value, opts) => {
+    const encKey = opts && opts.keyEncoding ? opts.keyEncoding.encode(key) : key
+    if (opts && opts.keyEncoding) {
+      delete opts.keyEncoding
+    }
 
-  base.del = (key, opts) => base.append({ type: 'del', key, opts })
+    return base.append({
+      type: 'put',
+      key: encKey,
+      value,
+      opts
+    })
+  }
+
+  base.del = (key, opts) => {
+    const encKey = opts && opts.keyEncoding ? opts.keyEncoding.encode(key) : key
+    if (opts && opts.keyEncoding) {
+      delete opts.keyEncoding
+    }
+    return base.append({ type: 'del', key: encKey, opts })
+  }
 
   base.get = (key, opts) => base.view.get(key, opts)
 
@@ -39,10 +53,10 @@ export const apply = async (batch, bee, base) => {
     const op = node.value
     if (op.type === 'put') {
       debug && console.log('-> put', op.key, op.value, op.opts)
-      await b.put(op.key, op.value, op.opts)
+      await b.put(b4a.from(op.key), op.value, op.opts)
     } else if (op.type === 'del') {
       debug && console.log('-> del', op.key, op.opts)
-      await b.del(op.key, op.opts)
+      await b.del(b4a.from(op.key), op.opts)
     }
   }
 
@@ -65,6 +79,8 @@ class SubIndex extends EventEmitter {
     const enc = new SubEncoder()
     const subEnc = enc.sub(name)
     this.enc = subEnc
+
+    this._watchers = []
     this._updateTimeout = null
     this._emitUpdate = () => {
       clearTimeout(this._updateTimeout)
@@ -74,16 +90,38 @@ class SubIndex extends EventEmitter {
     }
   }
 
-  update () {
-    return new Promise((resolve) => this.once('update', resolve))
+  async update () {
+    const oldestWatcher = this._watchers.reduce((oldest, w) =>
+      w.latest.version <= oldest.latest.version ? w : oldest, {
+      latest: {
+        version: Infinity
+      }
+    })
+
+    if (this.base.view.version > oldestWatcher.latest.version) {
+      return Promise.any([
+        oldestWatcher.update(),
+        // drop out early for  immediate updates
+        new Promise((resolve) => this.once('update', resolve))
+      ])
+    }
+  }
+
+  async drained () {
+    // Wait for watchers to process current input
+    await Promise.all(this._watchers.map((w) => w.update()))
+    // ensure base is update to date
+    return this.update()
   }
 
   put (key, value) {
-    return this.base.put(key, value, { keyEncoding: this.enc })
+    const encKey = this.enc.encode(key)
+    return this.base.put(encKey, value)
   }
 
   del (key) {
-    return this.base.del(key, { keyEncoding: this.enc })
+    const encKey = this.enc.encode(key)
+    return this.base.del(encKey)
   }
 
   get (key) {
@@ -112,7 +150,7 @@ export const createIndex =
     await base.ready()
 
     // Default to only watching since db version when index is created
-    let dbVersionBefore = base.view.version
+    let dbVersionBefore = base.view.snapshot()
 
     const prevVersion = await base.get(name, { keyEncoding: indexMetaSubEnc })
     debug && console.log('prevVersion', prevVersion, 'version', version)
@@ -126,9 +164,12 @@ export const createIndex =
       }
 
       await Promise.all(proms)
-      dbVersionBefore = 0
+      dbVersionBefore = base.view.checkout(1)
     } else if (!prevVersion) {
       await base.put(name, version, { keyEncoding: indexMetaSubEnc })
+    } else if (prevVersion.value > version) {
+      console.warn(`The current index version [${prevVersion.value}] is newer than the declared version [${version}]. Upgrade needed. No indexing will happen.`)
+      return [sub]
     }
 
     // TODO Consider implementing a version that walks through the history of the
@@ -138,10 +179,16 @@ export const createIndex =
         base.view, range, dbVersionBefore, async (node) => {
           await cb(node, sub)
           sub._emitUpdate()
-
-          watcher.update().then(() => sub.emit('drain'))
         })
+      sub._watchers.push(watcher)
       return watcher
+    })
+
+    const indexVersionWatcher = await base.view.getAndWatch(name, { keyEncoding: indexMetaSubEnc })
+    indexVersionWatcher.on('update', () => {
+      if (indexVersionWatcher.node.value > version) {
+        watchers.map((w) => w.close())
+      }
     })
 
     return [sub, watchers]
